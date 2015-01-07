@@ -10,11 +10,12 @@ Created on Sun Dec 14 01:15:57 2014
 """
 import numpy as np
 import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore, QtGui
 
 class MagPy(object):
     def __init__(self, 
-                 filename = 'DATA-021-SpinTest.txt', 
-                 #filename = 'DATA-190-4-30-14-1248-ToDan2.txt',
+                 #filename = 'DATA-021-SpinTest.txt', 
+                 filename = 'DATA-190-4-30-14-1248-ToDan2.txt',
                  filepath = '/Users/Dan/Desktop/',
                  delimiter = '\t'):
         self.parseData(self.readData(filename, filepath, delimiter))
@@ -29,7 +30,7 @@ class MagPy(object):
         data = []
         for line in fline:
             if line[0] != ';':
-                [ts, ax, ay, az, mx, my, mz, a] = line.split(delimiter)
+                [ts, ax, ay, az, mx, my, mz] = line.split(delimiter)
                 data.append([ts, ax, ay, az, mx, my, mz])
         data = np.array(data)
         data = {'data': data, 
@@ -110,6 +111,23 @@ class MagPy(object):
                          np.multiply(mx_cal, np.sin(roll), np.sin(pitch)) + np.multiply(my_cal, np.cos(roll)) - np.multiply(mz_cal, np.sin(roll), np.cos(pitch)))
         return [yaw, pitch, roll]
         
+class CustomViewBox(pg.ViewBox):
+    def __init__(self, *args, **kwds):
+        pg.ViewBox.__init__(self, *args, **kwds)
+        self.setMouseMode(self.RectMode)
+        
+    ## reimplement right-click to zoom out
+    def mouseClickEvent(self, ev):
+        if ev.button() == QtCore.Qt.RightButton:
+            self.autoRange()
+            
+    def mouseDragEvent(self, ev):
+        if ev.button() == QtCore.Qt.RightButton:
+            ev.ignore()
+        else:
+            pg.ViewBox.mouseDragEvent(self, ev)
+
+        
 if __name__ == '__main__':
     a = MagPy()
     
@@ -117,10 +135,10 @@ if __name__ == '__main__':
     # Setup Bulk Data Explorer Window
     # ================
     win1 = pg.GraphicsWindow(title='Bulk Data')
-    win1.resize(1200,300)
+    win1.resize(1200,1200)
     win1.setWindowTitle('Tilt-Compensated Compass Direction and Accelerometer Data')
     
-    tot_plot = win1.addPlot(title='Region Selection')
+    tot_plot = win1.addPlot(title='Region Selection', colspan=3)
     tot_plot.plot(a.yaw, pen=(255,255,255,200))
     tot_plot.plot(a.norm_a_cal, pen=(0,100,100,200))
     lr = pg.LinearRegionItem([50,100])
@@ -128,25 +146,27 @@ if __name__ == '__main__':
     tot_plot.addItem(lr)
     tot_plot.setLabel('left', 'Magnitude', units='AU')
     tot_plot.setLabel('bottom', 'Time')
-    
+
     # ================
     # Setup Finely Tuned Data Explorer
     # ================
-    win2 = pg.GraphicsWindow(title='Data Explorer')
-    win2.resize(1200, 300)
-    win2.setWindowTitle('Data Explorer')
+#    win2 = pg.GraphicsWindow(title='Data Explorer')
+#    win2.resize(1200, 300)
+#    win2.setWindowTitle('Data Explorer')
+
+    win1.nextRow()
     
-    zoom_plot = win2.addPlot(title='Tilt-Compensated Magnetometer')
+    zoom_plot = win1.addPlot(title='Tilt-Compensated Magnetometer')
     zoom_plot.plot(a.yaw, pen=(255,255,255,200))
     zoom_plot.setLabel('left', 'Compass Direction', units='rad.')
     zoom_plot.setLabel('bottom', 'Time')
     
-    accel_plot = win2.addPlot(title='Normalized Accelerometer')
+    accel_plot = win1.addPlot(title='Normalized Accelerometer')
     accel_plot.plot(a.norm_a_cal, pen=(0,100,100,200))
     accel_plot.setLabel('left', 'Normalized Acceleration', units='AU')
     accel_plot.setLabel('bottom', 'Time', units='s')
     
-    mag_plot = win2.addPlot(title = 'Tilt-Compensated Magnetometer')
+    mag_plot = win1.addPlot(title = 'Tilt-Compensated Magnetometer')
     mag_plot.setAspectLocked()
     r = np.linspace(0, 2, len(a.yaw))
     x = np.cos(a.yaw)
@@ -184,11 +204,31 @@ if __name__ == '__main__':
     # ================ 
     def updateRegion():
         lr.setRegion(zoom_plot.getViewBox().viewRange()[0])
+        
+    #crosshair
+    label = pg.LabelItem(justify='right')
+    vLine = pg.InfiniteLine(angle=90, movable=False)
+    hLine = pg.InfiniteLine(angle=0, movable=False)
+    mag_plot.addItem(vLine, ignoreBounds=True)
+    mag_plot.addItem(hLine, ignoreBounds=True)
+    vb = tot_plot.vb    
     
+    def mouseMoved(evt):
+        pos = evt[0]  ## using signal proxy turns original arguments into a tuple
+        if mag_plot.sceneBoundingRect().contains(pos):
+            mousePoint = vb.mapSceneToView(pos)
+            index = int(mousePoint.x())
+            if index > 0 and index < len(a.yaw):
+                label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), a.yaw[index], a.norm_a_cal[index]))
+            vLine.setPos(mousePoint.x())
+            hLine.setPos(mousePoint.y())    
+
     # ================
     # Connect everything
     # ================     
     lr.sigRegionChanged.connect(updatePlot)
+    proxy = pg.SignalProxy(tot_plot.scene().sigMouseMoved, rateLimit=60, slot=mouseMoved)
     zoom_plot.sigXRangeChanged.connect(updateRegion)
     accel_plot.sigXRangeChanged.connect(updateRegion)
     updatePlot()
+    exit
