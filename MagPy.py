@@ -10,7 +10,6 @@ Created on Sun Dec 14 01:15:57 2014
 """
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 class MagPy(object):
     def __init__(self, 
@@ -111,23 +110,6 @@ class MagPy(object):
                          np.multiply(mx_cal, np.sin(roll), np.sin(pitch)) + np.multiply(my_cal, np.cos(roll)) - np.multiply(mz_cal, np.sin(roll), np.cos(pitch)))
         return [yaw, pitch, roll]
         
-class CustomViewBox(pg.ViewBox):
-    def __init__(self, *args, **kwds):
-        pg.ViewBox.__init__(self, *args, **kwds)
-        self.setMouseMode(self.RectMode)
-        
-    ## reimplement right-click to zoom out
-    def mouseClickEvent(self, ev):
-        if ev.button() == QtCore.Qt.RightButton:
-            self.autoRange()
-            
-    def mouseDragEvent(self, ev):
-        if ev.button() == QtCore.Qt.RightButton:
-            ev.ignore()
-        else:
-            pg.ViewBox.mouseDragEvent(self, ev)
-
-        
 if __name__ == '__main__':
     a = MagPy()
     
@@ -146,26 +128,32 @@ if __name__ == '__main__':
     tot_plot.addItem(lr)
     tot_plot.setLabel('left', 'Magnitude', units='AU')
     tot_plot.setLabel('bottom', 'Time')
+    tot_plot.setMouseEnabled(x=True, y=False)
 
     # ================
     # Setup Finely Tuned Data Explorer
     # ================
-#    win2 = pg.GraphicsWindow(title='Data Explorer')
-#    win2.resize(1200, 300)
-#    win2.setWindowTitle('Data Explorer')
-
     win1.nextRow()
-    
+
+    # ================
+    # Setup Zoomed Magnetometer Plot
+    # ================
     zoom_plot = win1.addPlot(title='Tilt-Compensated Magnetometer')
     zoom_plot.plot(a.yaw, pen=(255,255,255,200))
     zoom_plot.setLabel('left', 'Compass Direction', units='rad.')
     zoom_plot.setLabel('bottom', 'Time')
     
+    # ================
+    # Setup Zoomed Accelerometer Plot
+    # ================
     accel_plot = win1.addPlot(title='Normalized Accelerometer')
     accel_plot.plot(a.norm_a_cal, pen=(0,100,100,200))
     accel_plot.setLabel('left', 'Normalized Acceleration', units='AU')
     accel_plot.setLabel('bottom', 'Time', units='s')
     
+    # ================
+    # Setup Circular Path-tracing Plot
+    # ================
     mag_plot = win1.addPlot(title = 'Tilt-Compensated Magnetometer')
     mag_plot.setAspectLocked()
     r = np.linspace(0, 2, len(a.yaw))
@@ -180,6 +168,16 @@ if __name__ == '__main__':
     mag_plot.plot([x_bound[-1]], [y_bound[-1]], symbolBrush=(0,0,255), symbolPen='w', name='Final Position')
     mag_plot.disableAutoRange()
     mag_plot.setRange(xRange=[-2, 2], yRange=[-2, 2])
+    
+    # ================
+    # Setup Crosshairs for Zoomed Magnetometer Plot
+    # ================
+    label = pg.LabelItem(justify='right')
+    vLine = pg.InfiniteLine(angle=90, movable=False)
+    hLine = pg.InfiniteLine(angle=0, movable=False)
+    mag_plot.addItem(vLine, ignoreBounds=True)
+    mag_plot.addItem(hLine, ignoreBounds=True)
+    vb = tot_plot.vb    
     
     # ================
     # Update plots as ROI changes
@@ -204,15 +202,10 @@ if __name__ == '__main__':
     # ================ 
     def updateRegion():
         lr.setRegion(zoom_plot.getViewBox().viewRange()[0])
-        
-    #crosshair
-    label = pg.LabelItem(justify='right')
-    vLine = pg.InfiniteLine(angle=90, movable=False)
-    hLine = pg.InfiniteLine(angle=0, movable=False)
-    mag_plot.addItem(vLine, ignoreBounds=True)
-    mag_plot.addItem(hLine, ignoreBounds=True)
-    vb = tot_plot.vb    
-    
+     
+    # ================
+    # Update Plots with User Scroll-Zoom
+    # ================  
     def mouseMoved(evt):
         pos = evt[0]  ## using signal proxy turns original arguments into a tuple
         if mag_plot.sceneBoundingRect().contains(pos):
@@ -221,7 +214,7 @@ if __name__ == '__main__':
             if index > 0 and index < len(a.yaw):
                 label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), a.yaw[index], a.norm_a_cal[index]))
             vLine.setPos(mousePoint.x())
-            hLine.setPos(mousePoint.y())    
+            hLine.setPos(mousePoint.y())
 
     # ================
     # Connect everything
