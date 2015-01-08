@@ -8,8 +8,25 @@ Created on Wed Jan  7 12:53:09 2015
 import MagPy as mp
 import pyqtgraph as pg
 import numpy as np
+import csv
 
-a = mp.MagPy()
+filename = 'MagJumps'
+filetype = '.csv'
+filepath = '/Users/Dan/Desktop/'
+delimiter = ','
+a = mp.MagPy(filename + filetype, filepath, delimiter)
+
+# ================
+# Setup Bulk Data Explorer Window
+# ================import csv
+with open(filepath +  filename + '_tilt_compensated' + filetype, 'wb') as csvfile:
+    spamwriter = csv.writer(csvfile, delimiter=delimiter,
+                            quotechar=';', quoting=csv.QUOTE_MINIMAL)
+    for i in range(len(a.norm_a_cal)):
+        spamwriter.writerow([i, a.ax[i], a.ay[i], a.az[i], a.mx[i], a.my[i], a.mz[i], a.norm_a_cal[i], np.rad2deg(a.yaw[i] + np.pi)])
+    csvfile.close()
+
+
 # ================
 # Setup Bulk Data Explorer Window
 # ================

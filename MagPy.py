@@ -12,8 +12,8 @@ import numpy as np
 
 class MagPy(object):
     def __init__(self, 
-                 #filename = 'DATA-021-SpinTest.txt', 
-                 filename = 'DATA-190-4-30-14-1248-ToDan2.txt',
+                 filename = 'DATA-021-SpinTest.txt', 
+                 #filename = 'DATA-190-4-30-14-1248-ToDan2.txt',
                  filepath = '/Users/Dan/Desktop/',
                  delimiter = '\t'):
         self.parseData(self.readData(filename, filepath, delimiter))
@@ -24,12 +24,17 @@ class MagPy(object):
         f = open(filepath + filename)
         fline = f.readlines()
         f.close()
-        fline = fline[0].split('\r')
+        if len(fline) == 1:
+            fline = fline[0].split('\r')
         data = []
         for line in fline:
             if line[0] != ';':
-                [ts, ax, ay, az, mx, my, mz] = line.split(delimiter)
-                data.append([ts, ax, ay, az, mx, my, mz])
+                    point = line.split(delimiter)
+                    if len(point) > 4 and point[4] != '':
+                        if '\n' in point[6]:
+                            point[6].split('\n')
+                            #point[6] = point[6].split('\n')[0]
+                        data.append([point[0], point[1], point[2], point[3], point[4], point[5], point[6]])
         data = np.array(data)
         data = {'data': data, 
                 't': data[:, 0], 
