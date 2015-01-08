@@ -17,11 +17,14 @@ delimiter = ','
 a = mp.MagPy(filename + filetype, filepath, delimiter)
 
 # ================
-# Setup Bulk Data Explorer Window
+# Write processed data to file
 # ================import csv
 with open(filepath +  filename + '_tilt_compensated' + filetype, 'wb') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=delimiter,
                             quotechar=';', quoting=csv.QUOTE_MINIMAL)
+    spamwriter.writerow([';count', 'accl_x', 'accel_y', 'accel_z', 
+                         'mag_x', 'mag_y', 'mag_z', 
+                         'accel_cal_norm', 'tilt-comp_compass'])
     for i in range(len(a.norm_a_cal)):
         spamwriter.writerow([i, a.ax[i], a.ay[i], a.az[i], a.mx[i], a.my[i], a.mz[i], a.norm_a_cal[i], np.rad2deg(a.yaw[i] + np.pi)])
     csvfile.close()
